@@ -30,7 +30,15 @@ mod signature;
 
 pub use error::{ContextError, KeyLoadError, SignatureParseError, SigningError, VerificationError};
 #[cfg(feature = "key-load")]
+pub use key::load::current_user_key_name;
+#[cfg(feature = "key-load")]
+pub use key::load::current_user_search_path;
+#[cfg(feature = "key-load")]
 pub use key::load::load_user_key;
+#[cfg(feature = "key-load")]
+pub use key::load::load_key;
+#[cfg(feature = "key-load")]
+pub use key::load::load_key_from_path;
 pub use key::{KeyParseError, PrivateKey, PublicKey};
 pub use signature::Signature;
 

@@ -17,11 +17,100 @@
 
 use std::env;
 use std::fs::File;
-use std::io::Read;
-use std::path::PathBuf;
+use std::io::{ErrorKind, Read};
+use std::path::{Path, PathBuf};
 
 use crate::error::KeyLoadError;
 use crate::PrivateKey;
+
+// let search_path == cylinder::current_user_search_path();
+// let search_path == vec![Path::new("/etc/splinter/keys")];
+//
+// let key_name = cylinder::current_user_key_name();
+// let key_name = "splinterd";
+//
+// let key = cylinder::load_key(key_name, search_path)?;
+
+pub fn current_user_search_path() -> Vec<PathBuf> {
+    match env::var("CYLINDER_PATH") {
+        Ok(value) => {
+            value.split(':').map(|s| {
+                Path::new(s).to_path_buf()
+            }).collect()
+        }
+        Err(env::VarError::NotUnicode(_os_string)) => {
+            unimplemented!()
+        }
+        Err(env::VarError::NotPresent) => {
+            let mut dir = match dirs::home_dir() {
+                Some(dir) => dir,
+                None => Path::new(".").to_path_buf(),
+            };
+            dir.push(".cylinder");
+            dir.push("keys");
+            vec![dir]
+        }
+    }
+}
+
+pub fn current_user_key_name() -> String {
+    match env::var("CYLINDER_KEY_NAME") {
+        Ok(value) => {
+            value
+        }
+        Err(env::VarError::NotUnicode(_os_string)) => {
+            unimplemented!()
+        }
+        Err(env::VarError::NotPresent) => {
+            unimplemented!()
+        }
+    }
+}
+
+pub fn load_key(
+    name: &str,
+    search_path: Vec<PathBuf>,
+) -> Result<Option<PrivateKey>, KeyLoadError> {
+    match search_path.iter().find_map(|path| {
+        let mut key_path = path.clone();
+        key_path.push(name);
+        key_path.set_extension(".priv");
+
+        if key_path.exists() && key_path.is_file() {
+            match File::open(key_path) {
+                Ok(f) => Some(Ok(f)),
+                Err(e) => match e.kind() {
+                    ErrorKind::PermissionDenied => None,
+                    _ => Some(Err(e)),
+                }
+            }
+        } else {
+            None
+        }
+    }) {
+        Some(Ok(file)) => {
+            match load_key_from_file(file) {
+                Ok(key) => Ok(Some(key)),
+                Err(e) => Err(e),
+            }
+        },
+        Some(Err(e)) => {
+            // FIXME - this should take a source similar to InternalError
+            Err(KeyLoadError(format!("{}", e)))
+        }
+        None => Ok(None),
+    }
+}
+
+pub fn load_key_from_path(_path: &Path) -> Result<PrivateKey, KeyLoadError>
+{
+    unimplemented!()
+}
+
+fn load_key_from_file(_file: File) -> Result<PrivateKey, KeyLoadError>
+{
+    unimplemented!()
+}
 
 // determines the key name and path of the private key file
 pub fn load_user_key(
